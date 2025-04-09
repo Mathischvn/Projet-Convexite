@@ -1,0 +1,28 @@
+La première ligne contient
+
+	N H D
+
+où
+	N 	= nombre de sites touristiques +2
+	H	= nombre d'hotels supplémentaires (sans le premier ni le dernier) 
+	D	= nombre de jours
+
+La seonde ligne contient
+
+	Td	= longueur du trajet du jour d
+
+Le reste contient les infos sur les coordonnées et le score
+
+	x y Si
+
+où
+	x	= coord x
+	y	= coord y
+	Si	= score
+
+	la première ligne est l'hotel de départ
+	la secondeligne est l'hotel de fin
+	les "H" lignes suivantes sont les hotels supplémentaires
+	Les N-2 lignes suivantes sont les sites touristiques
+	
+Remarque : on utilisera la distance euclidienne
