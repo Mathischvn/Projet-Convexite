@@ -1,7 +1,11 @@
-# check.py
-
 def verifier_chemin(instance, chemin, sequence_hotels):
     erreurs = []
+
+    if len(sequence_hotels) != instance.nombre_de_jours + 1:
+        erreurs.append(
+            f" Le nombre d'hôtels ({len(sequence_hotels)}) est invalide. "
+            f"Attendu : {instance.nombre_de_jours + 1} (pour {instance.nombre_de_jours} jours)."
+        )
 
     if chemin[0] != 0:
         erreurs.append(" Le chemin ne commence pas par l'hôtel 0.")
@@ -16,12 +20,18 @@ def verifier_chemin(instance, chemin, sequence_hotels):
     index = 1
 
     for jour in range(instance.nombre_de_jours):
+        if jour >= len(sequence_hotels) - 1:
+            erreurs.append(f" Séquence d'hôtels incomplète pour le jour {jour + 1}.")
+            break
+
         depart = sequence_hotels[jour]
         arrivee = sequence_hotels[jour + 1]
         distance_jour = 0
 
         if chemin[index - 1] != depart:
-            erreurs.append(f" Mauvais hôtel de départ pour le jour {jour + 1} (attendu {depart}, trouvé {chemin[index - 1]})")
+            erreurs.append(
+                f" Mauvais hôtel de départ pour le jour {jour + 1} (attendu {depart}, trouvé {chemin[index - 1]})"
+            )
 
         while index < len(chemin) and chemin[index] != arrivee:
             point = chemin[index]
@@ -41,7 +51,7 @@ def verifier_chemin(instance, chemin, sequence_hotels):
             distance_jour += d
             if distance_jour > instance.distance_maximale_par_jour[jour] + 1e-4:
                 erreurs.append(
-                    f" Jour {jour + 1} dépasse la distance, tu es un très vilain garçon ({distance_jour:.2f} > {instance.distance_maximale_par_jour[jour]:.2f})"
+                    f" Jour {jour + 1} dépasse la distance maximale ({distance_jour:.2f} > {instance.distance_maximale_par_jour[jour]:.2f})"
                 )
             index += 1
             position = arrivee
@@ -55,3 +65,7 @@ def verifier_chemin(instance, chemin, sequence_hotels):
         print(" Erreurs détectées dans le chemin :")
         for err in erreurs:
             print(err)
+        print("\n🛠️ Chemin complet analysé :")
+        print(chemin)
+        print("🛠️ Séquence d'hôtels attendue :")
+        print(sequence_hotels)

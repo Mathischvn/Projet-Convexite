@@ -5,31 +5,43 @@ class RepairPPV:
         self.instance = instance
 
     def reparer(self, solution, modif_type=None):
-        print("=== REPARATION PPV ===")
-        print(f"  Type de modification détectée : {modif_type}")
-        print(f"  Hôtels initiaux : {solution['hotels']}")
-        print(f"  Chemin initial  : {solution['chemin']}")
 
         sequence_hotels = self._completer_hotels(solution['hotels'])
+        chemin_complet = []
 
-        if modif_type in {"site", "multi_site"}:
+        if modif_type == "day":
+            for jour in range(self.instance.nombre_de_jours):
+                depart = sequence_hotels[jour]
+                arrivee = sequence_hotels[jour + 1]
+                sous_chemin = self._ppv_jour(depart, arrivee, self.instance.distance_maximale_par_jour[jour])
+
+
+                ajouter_jour_au_chemin(chemin_complet, sous_chemin)
+
+            chemin = chemin_complet
+
+        else :
             chemin = self._reparer_apres_suppression_site(solution['chemin'], sequence_hotels)
-        elif modif_type == "day":
-            chemin = self._reparer_jour_entier(solution['chemin'], sequence_hotels)
-        else:
-            chemin, sequence_hotels = self._reparer_apres_suppression_hotel(solution['chemin'], sequence_hotels)
 
-        print(f"  Hotels complétés : {sequence_hotels}")
-        print(f"  Chemin réparé    : {chemin}")
-        print("======================\n")
+        # else:
+        #     chemin, sequence_hotels = self._reparer_apres_suppression_hotel(solution['chemin'], sequence_hotels)
+
+
+        chemin = nettoyer_doublons_consecutifs(chemin)
 
         return {
             'hotels': sequence_hotels,
             'chemin': chemin
         }
 
+
     def _completer_hotels(self, hotels):
         sequence = hotels[:]
+        expected_len = self.instance.nombre_de_jours + 1
+
+        while len(sequence) < expected_len:
+            sequence.append(None)
+
         for i in range(1, len(sequence) - 1):
             if sequence[i] is None:
                 candidats = self._hotels_atteignables(sequence[i - 1], i)
@@ -37,7 +49,10 @@ class RepairPPV:
                     sequence[i] = min(candidats, key=lambda h: self.instance.matrice_distances[sequence[i - 1]][h])
                 else:
                     sequence[i] = sequence[i - 1]
+
         return sequence
+
+
 
     def _regenerer_chemin_ppv(self, sequence_hotels):
         self.instance.reinitialiser_masque_sites()
@@ -64,13 +79,15 @@ class RepairPPV:
                 self.instance.masque_sites_visites[site] = False
 
             etape.append(arrivee)
-            chemin_complet.extend(etape)
+            ajouter_jour_au_chemin(chemin_complet, etape)
+
 
         return chemin_complet
     
     def _reparer_jour_entier(self, chemin_original, sequence_hotels):
         self.instance.reinitialiser_masque_sites()
 
+        # Marquer les hôtels comme visités 
         for h in range(self.instance.nombre_hotels):
             self.instance.masque_sites_visites[h] = False
 
@@ -80,6 +97,8 @@ class RepairPPV:
         for jour in range(self.instance.nombre_de_jours):
             depart = sequence_hotels[jour]
             arrivee = sequence_hotels[jour + 1]
+
+            # Vérifie s’il y a des sites entre les deux hôtels
             contient_site = False
             i = index
             if i < len(chemin_original) and chemin_original[i] == depart:
@@ -92,25 +111,17 @@ class RepairPPV:
                 i += 1
 
             if not contient_site:
-        
                 self._remettre_sites_jour(chemin_original, depart, arrivee)
                 sous_chemin = self._ppv_jour(depart, arrivee, self.instance.distance_maximale_par_jour[jour])
             else:
-            
                 sous_chemin = self._extraire_etape_jour(chemin_original, depart, arrivee)
 
-            
                 for node in sous_chemin:
                     if node >= self.instance.nombre_hotels:
                         self.instance.masque_sites_visites[node] = False
 
-            
-            if chemin_complet and chemin_complet[-1] == sous_chemin[0]:
-                chemin_complet.extend(sous_chemin[1:])
-            else:
-                chemin_complet.extend(sous_chemin)
+            ajouter_jour_au_chemin(chemin_complet, sous_chemin)
 
-            
             if index < len(chemin_original) and chemin_original[index] == depart:
                 index += 1
             while index < len(chemin_original) and chemin_original[index] != arrivee:
@@ -145,10 +156,7 @@ class RepairPPV:
                 index += 1
 
             sous_chemin = self._ppv_jour(depart, arrivee, self.instance.distance_maximale_par_jour[jour])
-            if chemin_complet and chemin_complet[-1] == sous_chemin[0]:
-                chemin_complet.extend(sous_chemin[1:])
-            else:
-                chemin_complet.extend(sous_chemin)
+            ajouter_jour_au_chemin(chemin_complet, sous_chemin)
 
 
         return chemin_complet
@@ -200,19 +208,15 @@ class RepairPPV:
                 distance_initiale += self.instance.matrice_distances[position][arrivee]
                 index += 1
 
-   
 
-
-           
             if len(anciens_sites) < self._compter_sites_jour(depart, arrivee, chemin_original):
-                
 
                 chemin_jour_original = self._extraire_etape_jour(chemin_original, depart, arrivee)
                 self._remettre_sites_supprimes(anciens_sites, chemin_jour_original)
 
                 etape_jour = self._ppv_jour(depart, arrivee, distance_initiale)
             else:
-                
+                # Sinon on garde l'étape originale
                 etape_jour = [depart] + anciens_sites + [arrivee]
 
             chemin_complet.extend(etape_jour)
@@ -233,77 +237,75 @@ class RepairPPV:
                     count += 1
         return count
     
-    def _reparer_apres_suppression_hotel(self, chemin_original, hotels):
-        self.instance.reinitialiser_masque_sites()
-        hotels_modifies = hotels[:]
-        chemin_complet = []
+    # def _reparer_apres_suppression_hotel(self, chemin_original, hotels):
+    #     self.instance.reinitialiser_masque_sites()
+    #     hotels_modifies = hotels[:]
+    #     chemin_complet = []
 
-    
-        hotel_avant = None
-        hotel_apres = None
-        index = None
+    #     # === Étape 1 : détecter le trou dans les hôtels ===
+    #     hotel_avant = None
+    #     hotel_apres = None
+    #     index = None
 
-        for i in range(len(hotels)):
-            if hotels[i] is None:
-                hotel_avant = hotels[i - 1]
-                hotel_apres = hotels[i + 1]
-                index = i
-                break
+    #     for i in range(len(hotels)):
+    #         if hotels[i] is None:
+    #             hotel_avant = hotels[i - 1]
+    #             hotel_apres = hotels[i + 1]
+    #             index = i
+    #             break
 
-        if index is None:
-            print("Aucun trou détecté dans les hôtels, rien à réparer.")
-            return chemin_original, hotels
+    #     if index is None:
+    #         return chemin_original, hotels
 
-       
-        sites_avant, sites_apres = [], []
-        phase = None
-        for node in chemin_original:
-            if node == hotel_avant:
-                phase = "avant"
-                continue
-            if node == hotel_apres:
-                break
-            if node in hotels:
-                continue
+    #     # === Étape 2 : extraire les sites entre ces deux hôtels ===
+    #     sites_avant, sites_apres = [], []
+    #     phase = None
+    #     for node in chemin_original:
+    #         if node == hotel_avant:
+    #             phase = "avant"
+    #             continue
+    #         if node == hotel_apres:
+    #             break
+    #         if node in hotels:
+    #             continue
 
-            if phase == "avant":
-                sites_avant.append(node)
-            elif phase == "apres":
-                sites_apres.append(node)
+    #         if phase == "avant":
+    #             sites_avant.append(node)
+    #         elif phase == "apres":
+    #             sites_apres.append(node)
 
-       
-        nouvel_hotel, sites_avant, sites_apres = self._inserer_nouvel_hotel_autour(
-            hotel_avant, hotel_apres, sites_avant, sites_apres, index
-        )
+    #     # === Étape 3 : tentative d’insertion d’un nouvel hôtel avec suppression partielle ===
+    #     nouvel_hotel, sites_avant, sites_apres = self._inserer_nouvel_hotel_autour(
+    #         hotel_avant, hotel_apres, sites_avant, sites_apres, index
+    #     )
 
-        if nouvel_hotel is None:
-            print("⚠️ Aucun hôtel atteignable trouvé malgré les suppressions.")
-            nouvel_hotel = hotel_avant 
+    #     if nouvel_hotel is None:
+    #         nouvel_hotel = hotel_avant  # fallback safe
 
-        hotels_modifies[index] = nouvel_hotel
+    #     hotels_modifies[index] = nouvel_hotel
 
-
-        bloc_1 = self._extraire_etape_jour(chemin_original, hotel_avant, nouvel_hotel)
-        bloc_2 = self._extraire_etape_jour(chemin_original, nouvel_hotel, hotel_apres)
-        self._remettre_sites_supprimes(sites_avant, bloc_1)
-        self._remettre_sites_supprimes(sites_apres, bloc_2)
+    #     # === Étape 4 : régénération des 2 journées autour ===
+    #     bloc_1 = self._extraire_etape_jour(chemin_original, hotel_avant, nouvel_hotel)
+    #     bloc_2 = self._extraire_etape_jour(chemin_original, nouvel_hotel, hotel_apres)
+    #     self._remettre_sites_supprimes(sites_avant, bloc_1)
+    #     self._remettre_sites_supprimes(sites_apres, bloc_2)
 
 
-        chemin_j1 = self._ppv_jour(hotel_avant, nouvel_hotel, self.instance.distance_maximale_par_jour[index - 1])
-        chemin_j2 = self._ppv_jour(nouvel_hotel, hotel_apres, self.instance.distance_maximale_par_jour[index])
+    #     chemin_j1 = self._ppv_jour(hotel_avant, nouvel_hotel, self.instance.distance_maximale_par_jour[index - 1])
+    #     chemin_j2 = self._ppv_jour(nouvel_hotel, hotel_apres, self.instance.distance_maximale_par_jour[index])
 
+    #     # === Étape 5 : reconstruction complète du chemin ===
+    #     for j in range(self.instance.nombre_de_jours):
+    #         if j == index - 1:
+    #             chemin_complet.extend(chemin_j1)
+    #         elif j == index:
+    #             chemin_complet.extend(chemin_j2)
+    #         else:
+    #             depart = hotels_modifies[j]
+    #             arrivee = hotels_modifies[j + 1]
+    #             chemin_complet.extend(self._extraire_etape_jour(chemin_original, depart, arrivee))
 
-        for j in range(self.instance.nombre_de_jours):
-            if j == index - 1:
-                chemin_complet.extend(chemin_j1)
-            elif j == index:
-                chemin_complet.extend(chemin_j2)
-            else:
-                depart = hotels[j]
-                arrivee = hotels[j + 1]
-                chemin_complet.extend(self._extraire_etape_jour(chemin_original, depart, arrivee))
-
-        return chemin_complet, hotels_modifies
+    #     return chemin_complet, hotels_modifies
     
     def _bloc_hotel_present(self, chemin, depart, arrivee):
         """Vérifie si un bloc [depart ... arrivee] est présent dans le chemin."""
@@ -328,6 +330,7 @@ class RepairPPV:
         Essaie différentes combinaisons de suppression de suffixes/préfixes
         pour rendre possible l'insertion d'un hôtel entre hotel_avant et hotel_apres.
         """
+
         for nb_sup_avant in range(len(sites_avant) + 1):
             suffixe = sites_avant[-nb_sup_avant:] if nb_sup_avant > 0 else []
             nouveaux_avant = sites_avant[:-nb_sup_avant] if nb_sup_avant > 0 else sites_avant[:]
@@ -338,46 +341,67 @@ class RepairPPV:
 
                 self._remettre_disponibles(nouveaux_avant + nouveaux_apres)
 
-                hotels_possibles = self._hotels_atteignables(hotel_avant, jour_index)
-                for h in hotels_possibles:
-                    d1 = self.instance.matrice_distances[hotel_avant][h]
-                    d2 = self.instance.matrice_distances[h][hotel_apres]
-                    if d1 + d2 <= self.instance.distance_maximale_par_jour[jour_index]:
-                        return h, nouveaux_avant, nouveaux_apres
+                if nouveaux_avant:
+                    position_depart = nouveaux_avant[-1]
+                else:
+                    position_depart = hotel_avant
 
-        return None, sites_avant, sites_apres 
+                dmax = self.instance.distance_maximale_par_jour[jour_index]
+
+                hotels_possibles = [
+                    h for h in range(self.instance.nombre_hotels)
+                    if self.instance.matrice_distances[position_depart][h] + self.instance.matrice_distances[h][hotel_apres] <= dmax
+                ]
+
+                for h in hotels_possibles:
+                    return h, nouveaux_avant, nouveaux_apres
+
+        return None, sites_avant, sites_apres
+
     
     def _ppv_jour(self, depart, arrivee, distance_max, sites_a_eviter=None):
         position = depart
-        distance_restante = distance_max
+        distance_parcourue = 0
         etape = [depart]
         sites_a_eviter = set(sites_a_eviter or [])
 
-        while distance_restante > 0:
-            candidats = self._sites_atteignables(position, arrivee, distance_restante)
+        while True:
+            candidats = []
+            for site in range(self.instance.nombre_hotels, self.instance.nombre_de_sites):
+                if not self.instance.masque_sites_visites[site]:
+                    continue
+                if self.instance.scores_des_sites[site] <= 0:
+                    continue
+                if site in sites_a_eviter:
+                    continue
+
+                d_site = self.instance.matrice_distances[position][site]
+                d_retour = self.instance.matrice_distances[site][arrivee]
+
+                if distance_parcourue + d_site + d_retour <= distance_max:
+                    d_directe = self.instance.matrice_distances[position][arrivee]
+                    bonus = 1.2 if d_retour < d_directe else 1.0
+                    score = self.instance.scores_des_sites[site]
+                    ponderation = d_site / (score * bonus)
+                    candidats.append((site, ponderation, d_site))
+
             if not candidats:
                 break
 
-            prioritaires = [s for s in candidats if s not in sites_a_eviter]
-            if prioritaires:
-                candidats = prioritaires
-
-            def score_continuite(s):
-                d = self.instance.matrice_distances[position][s]
-                d_vers_arrivee = self.instance.matrice_distances[s][arrivee]
-                d_directe = self.instance.matrice_distances[position][arrivee]
-                bonus = 1.2 if d_vers_arrivee < d_directe else 1
-                return d / bonus
-
-            site = min(candidats, key=score_continuite)
-
-            etape.append(site)
-            distance_restante -= self.instance.matrice_distances[position][site]
-            position = site
-            self.instance.masque_sites_visites[site] = False
+            site_choisi, _, d_site = min(candidats, key=lambda x: x[1])
+            etape.append(site_choisi)
+            distance_parcourue += d_site
+            position = site_choisi
+            self.instance.masque_sites_visites[site_choisi] = False
 
         etape.append(arrivee)
         return etape
+
+
+
+
+
+
 
     def _extraire_etape_jour(self, chemin, depart, arrivee):
         etape = []
@@ -408,6 +432,27 @@ class RepairPPV:
         for s in anciens_sites:
             if s not in sites_restants and s >= self.instance.nombre_hotels:
                 self.instance.masque_sites_visites[s] = True
+
+def ajouter_jour_au_chemin(chemin_complet, sous_chemin):
+    if not sous_chemin:
+        return
+
+
+    if chemin_complet and chemin_complet[-1] == sous_chemin[0]:
+        chemin_complet.extend(sous_chemin[1:])
+    else:
+        chemin_complet.extend(sous_chemin)
+
+
+def nettoyer_doublons_consecutifs(chemin):
+    chemin_nettoye = []
+    dernier = None
+    for node in chemin:
+        if node != dernier:
+            chemin_nettoye.append(node)
+        dernier = node
+    return chemin_nettoye
+
 
 
 

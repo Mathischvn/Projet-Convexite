@@ -6,6 +6,8 @@ class Instance:
         self.nombre_de_sites, self.nombre_hotels, self.nombre_de_jours, \
         self.distance_maximale_par_jour, self.matrice_distances, self.scores_des_sites = self.lire_instance(fichier)
         self.indice_premier_site = self.nombre_hotels + 2
+    
+        # 1 = disponible, 0 = visité
         self.masque_sites_visites = np.ones(self.nombre_de_sites, dtype=bool)
 
     def reinitialiser_masque_sites(self):

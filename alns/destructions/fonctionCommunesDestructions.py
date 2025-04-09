@@ -46,7 +46,7 @@ def supprimer_jour_du_chemin(chemin, hd, ha):
             j = i + 1
             while j < len(chemin) and chemin[j] != ha:
                 j += 1
-            j += 1
+            j += 1 
             i = j
         else:
             nouveau.append(chemin[i])

@@ -11,14 +11,12 @@ class SupprimerSatures:
         hotels = solution['hotels']
         chemin = solution['chemin']
 
-        # Étape 1 : repérer les hôtels saturés (présents >= 2 fois sauf aux extrémités)
         compteur = Counter(hotels[1:-1])
         hotels_satures = {h: c for h, c in compteur.items() if c >= 2}
 
         if not hotels_satures:
             return solution, self.mode
 
-        # Étape 2 : identifier les jours utilisant un hôtel saturé
         jours_candidats = []
         for jour in range(1, len(hotels) - 1):
             hd = hotels[jour]
@@ -30,11 +28,11 @@ class SupprimerSatures:
         if not jours_candidats:
             return solution, self.mode
 
-        # Étape 3 : supprimer la journée la plus inefficace parmi celles liées à un hôtel saturé
         jour_cible, _ = max(jours_candidats, key=lambda x: x[1])
 
         nouvelle_solution = copy.deepcopy(solution)
-        nouvelle_solution['hotels'] = hotels[:jour_cible] + hotels[jour_cible + 1:]
-        nouvelle_solution['chemin'] = supprimer_jour_du_chemin(chemin, hotels[jour_cible], hotels[jour_cible + 1])
+
+        hd, ha = hotels[jour_cible], hotels[jour_cible + 1]
+        nouvelle_solution['chemin'] = supprimer_jour_du_chemin(chemin, hd, ha)
 
         return nouvelle_solution, self.mode

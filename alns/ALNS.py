@@ -19,7 +19,7 @@ from alns.reparations.repairSolutionInitiale import RepairSolutionInitiale
 from check import verifier_chemin
 
 class ALNS:
-    def __init__(self, instance, solution_initiale, iterations=15000):
+    def __init__(self, instance, solution_initiale, iterations=30000):
         self.instance = instance
         self.solution_courante = solution_initiale
         self.meilleure_solution = solution_initiale
@@ -48,6 +48,7 @@ class ALNS:
             (d_nom, r_nom): 1.0
             for _, d_nom in self.operateurs_destruction
             for _, r_nom in self.operateurs_reparation
+            if not (r_nom == "RepairPPV" and d_nom == "SupprimerHotel")
         }
 
     def optimiser(self):
@@ -58,10 +59,8 @@ class ALNS:
             solution_temporaire, modif_type = destruction(copy.deepcopy(self.solution_courante))
             solution_temporaire = reparation(solution_temporaire, modif_type)
 
-            # === ✅ Vérification de la validité ===
-            # print("\n⛳ Vérification de la solution proposée...")
-            # verifier_chemin(self.instance, solution_temporaire['chemin'], solution_temporaire['hotels'])
-            # print("✅ Vérification terminée.\n")
+            verifier_chemin(self.instance, solution_temporaire["chemin"], solution_temporaire["hotels"])
+
 
             score_temp = self.evaluer(solution_temporaire)
             score_best = self.evaluer(self.meilleure_solution)
@@ -74,10 +73,9 @@ class ALNS:
             if gain:
                 self.meilleure_solution = solution_temporaire
                 self.solution_courante = solution_temporaire
-                print(f"🔥 Score = {score_temp} supérieur au score max trouvé ({score_best}), sauvegardé comme meilleure solution.")
+                print(f" Score = {score_temp} supérieur au score max trouvé ({score_best}), sauvegardé comme meilleure solution.")
                 self.solution_courante = copy.deepcopy(self.meilleure_solution)
 
-                # === Nettoyage final : supprimer les doublons d'hôtels ===
                 hotels = self.meilleure_solution['hotels']
                 chemin = self.meilleure_solution['chemin']
 
@@ -91,25 +89,35 @@ class ALNS:
 
     def selectionner_operateur_destruction(self):
         total = sum(
-            self.poids_duos[(d_nom, r_nom)]
+            self.poids_duos.get((d_nom, r_nom), 0)
             for _, d_nom in self.operateurs_destruction
             for _, r_nom in self.operateurs_reparation
         )
         choix = random.uniform(0, total)
         cumule = 0
         for op, d_nom in self.operateurs_destruction:
-            poids = sum(self.poids_duos[(d_nom, r_nom)] for _, r_nom in self.operateurs_reparation)
+            poids = sum(
+                self.poids_duos.get((d_nom, r_nom), 0)
+                for _, r_nom in self.operateurs_reparation
+                if (d_nom, r_nom) != ("SupprimerHotel", "RepairPPV")
+            )
             cumule += poids
             if choix <= cumule:
                 return op, d_nom
         return self.operateurs_destruction[-1]
 
     def selectionner_operateur_reparation(self, d_nom):
-        total = sum(self.poids_duos[(d_nom, r_nom)] for _, r_nom in self.operateurs_reparation)
+        total = sum(
+            self.poids_duos.get((d_nom, r_nom), 0)
+            for _, r_nom in self.operateurs_reparation
+        )
         choix = random.uniform(0, total)
         cumule = 0
         for op, r_nom in self.operateurs_reparation:
-            cumule += self.poids_duos[(d_nom, r_nom)]
+            if (d_nom, r_nom) == ("SupprimerHotel", "RepairPPV"):
+                continue
+            poids = self.poids_duos.get((d_nom, r_nom), 0)
+            cumule += poids
             if choix <= cumule:
                 return op, r_nom
         return self.operateurs_reparation[-1]

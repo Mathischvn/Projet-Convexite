@@ -24,7 +24,7 @@ class SelectionInitiale:
         self.seuil_relatif = seuil
         self.nb_max_sequences = nb_max_sequences
         self.seuil_activation_pruning = seuil_activation_pruning
-        self.ensemble_sequences_valides = [] 
+        self.ensemble_sequences_valides = []  # [(score, sequence)]
         self.ensemble_sequences_testees = set()
         self.meilleur_score = -1
         self.score_max_site = max(self.instance.scores_des_sites[self.instance.nombre_hotels:])

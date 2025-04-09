@@ -38,7 +38,6 @@ class SupprimerPeuEfficace:
         if not ratios:
             return solution
 
-        # Supprime le site avec ratio le plus éloigné de la moyenne
         moyenne = sum(r for _, r in ratios) / len(ratios)
         i_cible = max(ratios, key=lambda x: abs(x[1] - moyenne))[0]
 

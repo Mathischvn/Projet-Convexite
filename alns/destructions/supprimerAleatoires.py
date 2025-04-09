@@ -33,10 +33,11 @@ class SupprimerAleatoires:
 
         hotels[index] = None
 
+        # Récupération des hôtels avant et après
         hotel_avant = hotels[index - 1]
         hotel_apres = hotels[index + 1]
 
-        
+        # Suppression des sites du jour précédent et du jour suivant
         def extraire_sites_jour(depart, arrivee):
             sites = []
             started = False
@@ -54,21 +55,19 @@ class SupprimerAleatoires:
         def supprimer_sites(chemin, sites_a_supprimer):
             return [node for node in chemin if node not in sites_a_supprimer]
 
-        
         if index - 1 >= 0:
-    
+            dist_prev = self.instance.distance_maximale_par_jour[index - 1]
             sites_prev = extraire_sites_jour(hotel_avant, hotel_suppr)
-            nb_suppr_prev = max(1, int(len(sites_prev) * 0.2))
+            nb_suppr_prev = max(1, int(len(sites_prev) * 0.2))  # au moins 1 site
             sites_a_suppr_prev = random.sample(sites_prev, min(nb_suppr_prev, len(sites_prev)))
             chemin = supprimer_sites(chemin, sites_a_suppr_prev)
 
         if index < nb_jours:
-    
+            dist_next = self.instance.distance_maximale_par_jour[index]
             sites_next = extraire_sites_jour(hotel_suppr, hotel_apres)
             nb_suppr_next = max(1, int(len(sites_next) * 0.2))
             sites_a_suppr_next = random.sample(sites_next, min(nb_suppr_next, len(sites_next)))
             chemin = supprimer_sites(chemin, sites_a_suppr_next)
-
 
         solution['chemin'] = chemin
         solution['hotels'] = hotels
@@ -87,6 +86,7 @@ class SupprimerAleatoires:
         hotels = solution['hotels']
         nb_jours = self.instance.nombre_de_jours
 
+        # Étape 1 : choisir un jour au hasard avec au moins 1 site
         jours_valides = []
         index = 0
 
@@ -113,9 +113,10 @@ class SupprimerAleatoires:
         if not jours_valides:
             return solution
 
-
+        # Étape 2 : choisir un jour au hasard parmi ceux avec des sites
         jour_choisi, sites = random.choice(jours_valides)
 
+        # Étape 3 : supprimer jusqu'à 3 sites de cette journée
         nb_suppr = min(len(sites), random.randint(1, 3))
         a_supprimer = random.sample(sites, nb_suppr)
         solution['chemin'] = [x for x in chemin if x not in a_supprimer]
@@ -127,7 +128,7 @@ class SupprimerAleatoires:
         hotels = solution['hotels']
         jours_valides = []
 
-    
+        # Étape 1 : repérer les jours contenant des sites
         index = 0
         for j in range(self.instance.nombre_de_jours):
             depart = hotels[j]
@@ -151,6 +152,7 @@ class SupprimerAleatoires:
         if not jours_valides:
             return solution
 
+        # Étape 2 : choisir un jour aléatoire et supprimer les sites de ce jour
         depart, arrivee, sites_a_supprimer = random.choice(jours_valides)
 
         solution['chemin'] = [

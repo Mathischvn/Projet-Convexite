@@ -22,10 +22,12 @@ if __name__ == "__main__":
     instance = Instance(chemin_fichier_instance)
 
     print("\n\n==================  SÉLECTION INITIALE HÔTELS & SITES ==================")
-    selection_initiale = SelectionInitiale(instance, seuil=0.99, nb_max_sequences=10)
+    selection_initiale = SelectionInitiale(instance, seuil=0.99, nb_max_sequences=50)
     resultats_initiaux, temps_selection = executer_avec_chrono(selection_initiale.selectionner)
 
+    # Initialisation du max_score à une valeur très faible avant la boucle
     max_score = float('-inf')
+    
 
     print(f"\n Meilleur score estimé : {resultats_initiaux[0][0]:.2f}")
     print(f" {len(resultats_initiaux)} séquences retenues :\n")
@@ -45,7 +47,10 @@ if __name__ == "__main__":
                 jour_sites.append(chemin_detaille[index])
                 index += 1
 
-            index += 1
+            # l'hôtel d'arrivée pour ce jour
+            index += 1  # On saute l'hôtel d'arrivée pour le jour suivant
+ 
+
 
     meilleure_sequence = resultats_initiaux[0][1]
     meilleur_chemin = resultats_initiaux[0][2]
@@ -53,25 +58,14 @@ if __name__ == "__main__":
     print("\n DEBUG chemin_complet final :")
     print(meilleur_chemin)
 
+    
     verifier_chemin(instance, meilleur_chemin, meilleure_sequence)
 
     print(f"Temps total sélection initiale : {temps_selection:.2f} secondes")
     print("=========================================================================\n")
 
-    # Affichage de tous les chemins
-    print("\n==================== Affichage de tous les chemins ====================")
-    for i, (score, seq, chemin_detaille) in enumerate(resultats_initiaux, 1):
-        print(f"\nChemin {i} :")
-        index = 0
-        for jour in range(instance.nombre_de_jours):
-            jour_sites = []
-            depart = chemin_detaille[index]
-            index += 1
-            arrivee = seq[jour + 1]
-            while index < len(chemin_detaille) and chemin_detaille[index] != arrivee:
-                jour_sites.append(chemin_detaille[index])
-                index += 1
-            print(f"Jour {jour + 1}: {jour_sites}")
+
+    # #  Lancement de l'ALNS
 
     solution_initiale = {
         "hotels": meilleure_sequence,
@@ -81,10 +75,12 @@ if __name__ == "__main__":
     alns = ALNS(instance, solution_initiale)
     solution_finale = alns.optimiser()
 
+
     print(f"Meilleur chemin trouvé : {solution_finale['chemin']}")
     print(f"Hôtels : {solution_finale['hotels']}")
     print(f"Score : {alns.evaluer(solution_finale)}")
-    print("\n✅ Vérification finale via le checkeur :")
+    print("\n Vérification finale via le checkeur :")
     verifier_chemin(instance, solution_finale["chemin"], solution_finale["hotels"])
 
-    save_solution_file(solution_finale["chemin"], alns.evaluer(solution_finale), args.instance)
+
+        
